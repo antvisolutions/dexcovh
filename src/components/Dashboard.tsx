@@ -238,47 +238,49 @@ export const Dashboard: React.FC<DashboardProps> = ({ currentUser }) => {
       </div>
 
       {/* Main Grid: Left (Activity Feed) & Right (Upcoming Events) */}
-      <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '24px', alignItems: 'start' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: currentUser.isAdmin ? '2fr 1fr' : '1fr', gap: '24px', alignItems: 'start' }}>
         
-        {/* Left: Activity Feed */}
-        <div className="glass-panel" style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: '20px' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <Activity size={20} style={{ color: 'var(--color-cyan)' }} />
-              <h3 style={{ fontSize: '18px', fontWeight: 700 }}>Feed de Actividad Reciente</h3>
+        {/* Left: Activity Feed (Solo visible para Administradores) */}
+        {currentUser.isAdmin && (
+          <div className="glass-panel" style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: '20px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <Activity size={20} style={{ color: 'var(--color-cyan)', filter: 'drop-shadow(var(--glow-cyan))' }} />
+                <h3 style={{ fontSize: '18px', fontWeight: 700 }}>Feed de Actividad Reciente</h3>
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+              {activities.length === 0 ? (
+                <div style={{ color: 'var(--text-muted)', textAlign: 'center', padding: '32px 0' }}>
+                  No hay actividad reciente registrada en el sistema.
+                </div>
+              ) : (
+                activities.map((act) => (
+                  <div key={act.id} style={{ display: 'flex', gap: '14px', alignItems: 'flex-start', paddingBottom: '14px', borderBottom: '1px solid rgba(255, 255, 255, 0.03)' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '32px', height: '32px', borderRadius: '8px', background: 'rgba(255, 255, 255, 0.03)', border: '1px solid rgba(255, 255, 255, 0.05)', flexShrink: 0 }}>
+                      {getActivityIcon(act.tipo)}
+                    </div>
+                    <div style={{ flex: 1 }}>
+                      <p style={{ fontSize: '14px', color: 'var(--text-primary)', lineHeight: '1.4' }}>
+                        <strong style={{ color: 'var(--color-cyan)', fontWeight: 600 }}>{act.autor}</strong> {act.texto}
+                      </p>
+                      <span style={{ fontSize: '11px', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '4px', marginTop: '4px' }}>
+                        <Clock size={10} />
+                        {new Date(act.creado_en).toLocaleString('es-MX')}
+                      </span>
+                    </div>
+                  </div>
+                ))
+              )}
             </div>
           </div>
-
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-            {activities.length === 0 ? (
-              <div style={{ color: 'var(--text-muted)', textAlign: 'center', padding: '32px 0' }}>
-                No hay actividad reciente registrada en el sistema.
-              </div>
-            ) : (
-              activities.map((act) => (
-                <div key={act.id} style={{ display: 'flex', gap: '14px', alignItems: 'flex-start', paddingBottom: '14px', borderBottom: '1px solid rgba(255, 255, 255, 0.03)' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '32px', height: '32px', borderRadius: '8px', background: 'rgba(255, 255, 255, 0.03)', border: '1px solid rgba(255, 255, 255, 0.05)', flexShrink: 0 }}>
-                    {getActivityIcon(act.tipo)}
-                  </div>
-                  <div style={{ flex: 1 }}>
-                    <p style={{ fontSize: '14px', color: 'var(--text-primary)', lineHeight: '1.4' }}>
-                      <strong style={{ color: 'var(--color-cyan)', fontWeight: 600 }}>{act.autor}</strong> {act.texto}
-                    </p>
-                    <span style={{ fontSize: '11px', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '4px', marginTop: '4px' }}>
-                      <Clock size={10} />
-                      {new Date(act.creado_en).toLocaleString('es-MX')}
-                    </span>
-                  </div>
-                </div>
-              ))
-            )}
-          </div>
-        </div>
+        )}
 
         {/* Right: Upcoming Events */}
         <div className="glass-panel" style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: '20px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <CalendarDays size={20} style={{ color: 'var(--color-purple)' }} />
+            <CalendarDays size={20} style={{ color: 'var(--color-purple)', filter: 'drop-shadow(var(--glow-indigo))' }} />
             <h3 style={{ fontSize: '18px', fontWeight: 700 }}>Próximos Eventos</h3>
           </div>
 
