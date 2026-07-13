@@ -2,8 +2,6 @@ import React, { useState, useEffect } from 'react';
 import { supabase } from '../supabaseClient';
 import { 
   DollarSign, 
-  TrendingUp, 
-  ArrowUpRight, 
   Plus, 
   Trash2, 
   Calculator,
@@ -138,11 +136,7 @@ export const Finanzas: React.FC = () => {
   const netProfit = totalIncome - totalExpenses;
   const profitMargin = totalIncome > 0 ? (netProfit / totalIncome) * 100 : 0;
 
-  const getExpensesByCategory = (cat: string) => {
-    return expensesList
-      .filter(e => e.categoria === cat)
-      .reduce((acc, curr) => acc + curr.monto, 0);
-  };
+
 
   // Break-even
   const fixedCosts = parseFloat(beCostosFijos) || 0;

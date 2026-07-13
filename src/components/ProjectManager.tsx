@@ -27,7 +27,7 @@ interface ProjectManagerProps {
   currentUser: { nombre: string; isAdmin: boolean };
 }
 
-export const ProjectManager: React.FC<ProjectManagerProps> = ({ }) => {
+export const ProjectManager: React.FC<ProjectManagerProps> = ({ currentUser }) => {
   const [projects, setProjects] = useState<Project[]>([]);
   const [activeSubTab, setActiveSubTab] = useState<'En Proceso' | 'Terminado' | 'Mantenimiento'>('En Proceso');
   const [search, setSearch] = useState<string>('');

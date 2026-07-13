@@ -1,13 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../supabaseClient';
 import { 
-  Users2, 
   Plus, 
   Trash2, 
   Mail, 
   Phone, 
-  Megaphone,
-  Tag
+  Megaphone
 } from 'lucide-react';
 
 interface ContactItem {

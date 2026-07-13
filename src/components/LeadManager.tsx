@@ -37,7 +37,6 @@ interface LeadManagerProps {
 
 export const LeadManager: React.FC<LeadManagerProps> = ({ currentUser }) => {
   const [leads, setLeads] = useState<Lead[]>([]);
-  const [loading, setLoading] = useState(false);
 
   // Search & Filter states
   const [searchQuery, setSearchQuery] = useState('');
@@ -79,7 +78,6 @@ export const LeadManager: React.FC<LeadManagerProps> = ({ currentUser }) => {
   const [generatedPitch, setGeneratedPitch] = useState('');
 
   const fetchLeads = async () => {
-    setLoading(true);
     try {
       const { data, error } = await supabase
         .from('leads')
@@ -90,8 +88,6 @@ export const LeadManager: React.FC<LeadManagerProps> = ({ currentUser }) => {
       setLeads(data || []);
     } catch (err) {
       console.error('Error fetching leads:', err);
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -197,7 +193,7 @@ export const LeadManager: React.FC<LeadManagerProps> = ({ currentUser }) => {
   };
 
   // Update Status
-  const handleUpdateStatus = async (id: number, estatus: 'Aceptado' | 'Rechazado') => {
+  const handleUpdateStatus = async (id: number, estatus: 'Pendiente' | 'Aceptado' | 'Rechazado') => {
     const lead = leads.find(l => l.id === id);
     
     try {

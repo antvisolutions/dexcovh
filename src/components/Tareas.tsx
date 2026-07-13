@@ -75,14 +75,13 @@ export const Tareas: React.FC<TareasProps> = ({ currentUser }) => {
     if (!newTitle.trim()) return;
 
     try {
-      const { data, error } = await supabase
+      const { error } = await supabase
         .from('tareas')
         .insert({
           titulo: newTitle.trim(),
           asignado_a: currentUser.nombre,
           completada: false
-        })
-        .select();
+        });
 
       if (error) throw error;
 

@@ -1,13 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../supabaseClient';
 import { 
-  Users, 
-  ShieldAlert, 
-  Plus, 
-  CheckSquare, 
   Trash2,
-  Lock,
-  Check
+  Lock
 } from 'lucide-react';
 
 interface Colaborador {
