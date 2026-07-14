@@ -109,7 +109,7 @@ body::before {
 
 /* Buttons with hover states */
 .btn-primary {
-  background: linear-gradient(135deg, var(--color-cyan) 0%, var(--color-blue) 100%);
+  background: var(--color-cyan);
   color: #060810;
   border: none;
   border-radius: 8px;
@@ -125,7 +125,7 @@ body::before {
 
 .btn-primary:hover {
   transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(56, 189, 248, 0.15);
+  box-shadow: 0 4px 12px rgba(255, 255, 255, 0.08);
 }
 
 .btn-primary:active {

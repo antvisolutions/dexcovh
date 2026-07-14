@@ -79,7 +79,7 @@ function App() {
       case 'projects':
         return <ProjectManager currentUser={session} />;
       case 'cotizador':
-        return <Cotizador />;
+        return <Cotizador currentUser={session} />;
       case 'agenda':
         return <Agenda currentUser={session} />;
       case 'tareas':
@@ -212,4 +212,3 @@ function App() {
 }
 
 export default App;
-

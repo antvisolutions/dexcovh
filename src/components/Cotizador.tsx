@@ -1,11 +1,16 @@
 import React, { useState } from 'react';
 import { FileText, Printer, Sparkles, Cpu } from 'lucide-react';
+import { supabase } from '../supabaseClient';
 
 interface Rangos {
   [key: string]: [number, number];
 }
 
-export const Cotizador: React.FC = () => {
+interface CotizadorProps {
+  currentUser?: { nombre: string; isAdmin: boolean };
+}
+
+export const Cotizador: React.FC<CotizadorProps> = ({ currentUser }) => {
   const [mode, setMode] = useState<'context' | 'manual'>('context');
   
   // Wizard Step State
@@ -142,6 +147,72 @@ export const Cotizador: React.FC = () => {
     }
   };
 
+  const handleSendAIRequest = async () => {
+    try {
+      const parsedBudget = parseFloat(ctxPresupuesto.replace(/[^0-9.]/g, '')) || 0;
+      
+      const { error } = await supabase.from('solicitudes_proyecto').insert({
+        lead_id: null,
+        nombre_cliente: ctxEmpresa,
+        tel_cliente: '',
+        precio_total: parsedBudget,
+        tipo_pago: 'Anticipo 50%',
+        metodo_pago: 'Transferencia',
+        dominio: 'GitHub',
+        paquete: '3. SOFTWARE A MEDIDA',
+        pidio_mantenimiento: false,
+        creado_por: currentUser?.nombre || 'Cotizador IA',
+        descripcion_proyecto: `Propuesta de solución generada por IA:\n\n${aiProposalText}`,
+        estatus: 'Pendiente'
+      });
+
+      if (error) throw error;
+
+      await supabase.from('actividades').insert({
+        texto: `envió una solicitud de proyecto para "${ctxEmpresa}" desde el Cotizador de contexto`,
+        tipo: 'lead',
+        autor: currentUser?.nombre || 'Cotizador IA'
+      });
+
+      alert('Solicitud de proyecto enviada al administrador con éxito.');
+    } catch (err: any) {
+      console.error(err);
+      alert(`Error al enviar solicitud: ${err.message}`);
+    }
+  };
+
+  const handleSendManualRequest = async () => {
+    try {
+      const { error } = await supabase.from('solicitudes_proyecto').insert({
+        lead_id: null,
+        nombre_cliente: nomCliente || 'Cliente Especial',
+        tel_cliente: '',
+        precio_total: total,
+        tipo_pago: 'Anticipo 50%',
+        metodo_pago: metodoPago,
+        dominio: tipoDominio,
+        paquete: paquete,
+        pidio_mantenimiento: tipoMantenimiento !== 'Sin Mantenimiento (15 días garantía)',
+        creado_por: currentUser?.nombre || 'Cotizador Manual',
+        descripcion_proyecto: `Cotización manual generada. Nota: ${notas || 'Ninguna'}`,
+        estatus: 'Pendiente'
+      });
+
+      if (error) throw error;
+
+      await supabase.from('actividades').insert({
+        texto: `envió una solicitud de proyecto para "${nomCliente || 'Cliente Especial'}" desde el Cotizador manual`,
+        tipo: 'lead',
+        autor: currentUser?.nombre || 'Cotizador Manual'
+      });
+
+      alert('Solicitud de proyecto enviada al administrador con éxito.');
+    } catch (err: any) {
+      console.error(err);
+      alert(`Error al enviar solicitud: ${err.message}`);
+    }
+  };
+
   const triggerPrint = () => {
     window.print();
   };
@@ -159,6 +230,9 @@ export const Cotizador: React.FC = () => {
       <div style={{ padding: '24px', maxWidth: '800px', margin: '0 auto' }}>
         <div style={{ display: 'flex', gap: '12px', marginBottom: '20px', justifyContent: 'flex-end' }} className="no-print">
           <button onClick={() => setShowAIPrintPreview(false)} className="btn-secondary">Volver a la edición</button>
+          <button onClick={handleSendAIRequest} className="btn-primary" style={{ background: '#10b981', color: '#fff' }}>
+            Enviar como Solicitud de Proyecto
+          </button>
           <button onClick={triggerPrint} className="btn-primary">
             <Printer size={16} />
             Imprimir o guardar PDF
@@ -232,6 +306,9 @@ export const Cotizador: React.FC = () => {
       <div style={{ padding: '24px', maxWidth: '800px', margin: '0 auto' }}>
         <div style={{ display: 'flex', gap: '12px', marginBottom: '20px', justifyContent: 'flex-end' }} className="no-print">
           <button onClick={() => setShowPrintPreview(false)} className="btn-secondary">Volver a la edición</button>
+          <button onClick={handleSendManualRequest} className="btn-primary" style={{ background: '#10b981', color: '#fff' }}>
+            Enviar como Solicitud de Proyecto
+          </button>
           <button onClick={triggerPrint} className="btn-primary">
             <Printer size={16} />
             Imprimir o guardar PDF
@@ -325,7 +402,7 @@ export const Cotizador: React.FC = () => {
                   Mantenimiento y Soporte del Sistema
                   <div style={{ fontSize: '11px', color: '#6b7280', marginTop: '2px' }}>
                     {tipoMantenimiento === 'Póliza Completa ($150/mes)' ? 'Soporte técnico integral, copias de seguridad semanales y monitoreo de servidores.' : 
-                     tipoMantenimiento === '1 Año Gratis (Backups y menores)' ? 'Incluye respaldos y ajustes de código menores sin costo.' : 
+                     tipoMantenimiento === '1 Year Free (Backups & minor adjustments)' || tipoMantenimiento === '1 Año Gratis (Backups y menores)' ? 'Incluye respaldos y ajustes de código menores sin costo.' : 
                      'Garantía básica contra bugs.'}
                   </div>
                 </td>
@@ -408,90 +485,91 @@ export const Cotizador: React.FC = () => {
     );
   }
 
+  const subtotal = getSubtotal();
+  const descPercent = parseFloat(descuento) || 0;
+  const dineroDescuento = subtotal * (descPercent / 100);
+  const total = subtotal - dineroDescuento;
+  const anticipo = total / 2;
+  const restante = total - anticipo;
+
   return (
-    <div style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: '24px', maxWidth: '900px', margin: '0 auto' }}>
-      
-      {/* Header & Modes Selector */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
+    <div style={{ padding: '30px' }} className="mobile-padding-reduction">
+      {/* Header section */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
         <div>
-          <h2 style={{ fontSize: '26px', fontWeight: 800, display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <FileText className="glow-text-cyan" />
-            Cotizador Dexcov
+          <h2 style={{ fontSize: '24px', fontWeight: 800, color: '#fff', letterSpacing: '-0.5px' }}>
+            Cotizador de Proyectos
           </h2>
-          <p style={{ color: 'var(--text-secondary)' }}>Configura los módulos, add-ons y genera un PDF limpio de cotización comercial para software.</p>
+          <p style={{ fontSize: '14px', color: 'var(--text-secondary)' }}>
+            Estructura cotizaciones rápidas basadas en contexto B2B o configura desgloses manuales.
+          </p>
         </div>
-        
-        {/* Toggle Mode */}
-        <div style={{ display: 'flex', gap: '6px', background: '#070912', padding: '4px', borderRadius: '8px', border: '1px solid var(--card-border)' }}>
-          <button
-            onClick={() => setMode('context')}
+
+        {/* Tab mode selection switcher */}
+        <div style={{ display: 'flex', background: 'rgba(255, 255, 255, 0.03)', border: '1px solid var(--card-border)', borderRadius: '10px', padding: '4px' }}>
+          <button 
+            onClick={() => setMode('context')} 
+            className="glow-transition"
             style={{
-              padding: '6px 12px',
-              borderRadius: '6px',
+              padding: '8px 16px',
+              borderRadius: '8px',
               border: 'none',
-              background: mode === 'context' ? 'var(--color-cyan)' : 'transparent',
-              color: mode === 'context' ? '#060810' : 'var(--text-secondary)',
-              fontWeight: 600,
-              fontSize: '12px',
               cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '6px',
-              transition: 'all 0.2s ease'
+              fontSize: '13px',
+              fontWeight: 600,
+              background: mode === 'context' ? 'var(--color-cyan)' : 'transparent',
+              color: mode === 'context' ? '#060810' : 'var(--text-secondary)'
             }}
           >
-            <Sparkles size={14} />
             Por Contexto (IA)
           </button>
-          <button
-            onClick={() => setMode('manual')}
+          <button 
+            onClick={() => { setMode('manual'); setStep(1); }} 
+            className="glow-transition"
             style={{
-              padding: '6px 12px',
-              borderRadius: '6px',
+              padding: '8px 16px',
+              borderRadius: '8px',
               border: 'none',
-              background: mode === 'manual' ? 'var(--color-cyan)' : 'transparent',
-              color: mode === 'manual' ? '#060810' : 'var(--text-secondary)',
-              fontWeight: 600,
-              fontSize: '12px',
               cursor: 'pointer',
-              transition: 'all 0.2s ease'
+              fontSize: '13px',
+              fontWeight: 600,
+              background: mode === 'manual' ? 'var(--color-cyan)' : 'transparent',
+              color: mode === 'manual' ? '#060810' : 'var(--text-secondary)'
             }}
           >
-            Avanzado (Manual)
+            Desglose Manual
           </button>
         </div>
       </div>
 
       {mode === 'context' ? (
-        /* Simplified Context Intake Form powered by Gemini IA */
-        <form onSubmit={handleGenerateAIProposal} className="glass-panel animate-fade-in" style={{ padding: '30px', display: 'flex', flexDirection: 'column', gap: '18px' }}>
+        /* Simplified Context Form (AI) */
+        <form onSubmit={handleGenerateAIProposal} className="glass-panel animate-fade-in" style={{ padding: '30px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
           <h3 style={{ fontSize: '18px', fontWeight: 700, color: 'var(--color-cyan)', display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <Cpu size={18} />
-            Generador de Propuesta por Contexto
+            <Sparkles size={18} />
+            Estructuración Inteligente de Propuestas
           </h3>
-          
+
           <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-            <label style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>Nombre de la Empresa / Negocio / Cliente</label>
+            <label style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>Nombre de la Empresa o Cliente</label>
             <input 
               type="text" 
               value={ctxEmpresa} 
               onChange={(e) => setCtxEmpresa(e.target.value)} 
-              placeholder="Ej. Distribuidora de Alimentos Gómez" 
+              placeholder="Ej. Boutique Maria / Ferretería Central" 
               className="glass-input" 
               required 
             />
           </div>
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-            <label style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>
-              ¿Cómo trabaja y qué necesita el cliente? (Contexto de su necesidad)
-            </label>
+            <label style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>¿Qué hace el negocio y qué sistema necesita?</label>
             <textarea 
               value={ctxDescripcion} 
               onChange={(e) => setCtxDescripcion(e.target.value)} 
-              placeholder="Describe en lenguaje natural cómo opera el cliente y qué problema busca resolver." 
+              placeholder="Describe detalladamente su forma de operar, sus puntos de dolor actuales (ej. lleva sus cuentas en papel) y lo que requiere automatizar. La IA propondrá los módulos ideales." 
               className="glass-input" 
-              style={{ height: '140px', resize: 'none', lineHeight: '1.4' }}
+              style={{ minHeight: '120px', resize: 'vertical' }}
               required 
             />
           </div>

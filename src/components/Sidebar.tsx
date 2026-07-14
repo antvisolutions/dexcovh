@@ -200,16 +200,14 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     width: '100%',
                     padding: '12px 16px',
                     borderRadius: '10px',
-                    border: 'none',
-                    background: isActive ? 'linear-gradient(135deg, rgba(56, 189, 248, 0.1) 0%, rgba(2, 132, 199, 0.05) 100%)' : 'transparent',
+                                        background: isActive ? 'rgba(255, 255, 255, 0.05)' : 'transparent',
                     color: isActive ? 'var(--color-cyan)' : '#9ca3af',
                     cursor: 'pointer',
                     fontWeight: isActive ? 600 : 500,
                     fontSize: '15px',
                     textAlign: 'left',
                     borderLeft: isActive ? '3px solid var(--color-cyan)' : '3px solid transparent',
-                    transition: 'all 0.2s ease',
-                    boxShadow: isActive ? 'inset 0 0 10px rgba(56, 189, 248, 0.05)' : 'none'
+                    transition: 'all 0.2s ease'
                   }}
                   onMouseEnter={(e) => {
                     if (!isActive) {
@@ -272,14 +270,15 @@ export const Sidebar: React.FC<SidebarProps> = ({
             flexDirection: isCollapsed ? 'column' : 'row',
             alignItems: 'center',
             justifyContent: 'space-between',
-            gap: isCollapsed ? '12px' : '0'
+            gap: isCollapsed ? '12px' : '0',
+            width: '100%'
           }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
               <div style={{
                 width: '36px',
                 height: '36px',
                 borderRadius: '50%',
-                background: 'linear-gradient(135deg, var(--color-cyan) 0%, var(--color-blue) 100%)',
+                background: 'var(--color-cyan)',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
