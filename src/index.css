@@ -228,3 +228,20 @@ body::before {
   }
 }
 
+
+.delete-project-btn {
+  background: none;
+  border: none;
+  color: #ef4444;
+  cursor: pointer;
+  padding: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 6px;
+  transition: all 0.2s ease;
+}
+.delete-project-btn:hover {
+  background: rgba(239, 68, 68, 0.15);
+  transform: scale(1.05);
+}

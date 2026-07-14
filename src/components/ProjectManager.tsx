@@ -5,7 +5,8 @@ import {
   Search,
   DollarSign,
   TrendingUp,
-  ShieldCheck
+  ShieldCheck,
+  Trash2
 } from 'lucide-react';
 
 interface Project {
@@ -95,6 +96,33 @@ export const ProjectManager: React.FC<ProjectManagerProps> = ({ currentUser }) =
     } catch (err: any) {
       console.error(err);
       alert(`Error al actualizar fase: ${err.message}`);
+    }
+  };
+
+  const handleDeleteProject = async (projectId: number, projectName: string) => {
+    if (!window.confirm(`¿Estás seguro de que deseas eliminar el proyecto "${projectName}"?`)) {
+      return;
+    }
+
+    try {
+      const { error } = await supabase
+        .from('clientes')
+        .delete()
+        .eq('id', projectId);
+
+      if (error) throw error;
+
+      // Log Activity
+      await supabase.from('actividades').insert({
+        texto: `eliminó el proyecto "${projectName}"`,
+        tipo: 'proyecto',
+        autor: currentUser.nombre
+      });
+
+      alert('Proyecto eliminado exitosamente.');
+    } catch (err: any) {
+      console.error(err);
+      alert(`Error al eliminar proyecto: ${err.message}`);
     }
   };
 
@@ -189,18 +217,42 @@ export const ProjectManager: React.FC<ProjectManagerProps> = ({ currentUser }) =
                     Paquete: <strong>{proj.paquete}</strong>
                   </span>
                 </div>
-                <span style={{
-                  padding: '4px 10px',
-                  borderRadius: '12px',
-                  fontSize: '11px',
-                  fontWeight: 600,
-                  textTransform: 'uppercase',
-                  color: proj.estatus === 'Terminado' ? '#10b981' : '#00d2ff',
-                  background: proj.estatus === 'Terminado' ? 'rgba(16, 185, 129, 0.1)' : 'rgba(0, 210, 255, 0.1)',
-                  border: `1px solid ${proj.estatus === 'Terminado' ? 'rgba(16, 185, 129, 0.2)' : 'rgba(0, 210, 255, 0.2)'}`
-                }}>
-                  {proj.estatus}
-                </span>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <span style={{
+                    padding: '4px 10px',
+                    borderRadius: '12px',
+                    fontSize: '11px',
+                    fontWeight: 600,
+                    textTransform: 'uppercase',
+                    color: proj.estatus === 'Terminado' ? '#10b981' : '#00d2ff',
+                    background: proj.estatus === 'Terminado' ? 'rgba(16, 185, 129, 0.1)' : 'rgba(0, 210, 255, 0.1)',
+                    border: `1px solid ${proj.estatus === 'Terminado' ? 'rgba(16, 185, 129, 0.2)' : 'rgba(0, 210, 255, 0.2)'}`
+                  }}>
+                    {proj.estatus}
+                  </span>
+                  
+                  {currentUser.isAdmin && (
+                    <button
+                      onClick={() => handleDeleteProject(proj.id, proj.nombre)}
+                      style={{
+                        background: 'none',
+                        border: 'none',
+                        color: '#ef4444',
+                        cursor: 'pointer',
+                        padding: '4px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        borderRadius: '6px',
+                        transition: 'all 0.2s'
+                      }}
+                      title="Eliminar proyecto"
+                      className="delete-project-btn"
+                    >
+                      <Trash2 size={16} />
+                    </button>
+                  )}
+                </div>
               </div>
 
               {/* Progress and Phase */}
