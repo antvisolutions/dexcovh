@@ -27,7 +27,7 @@ interface Lead {
   instagram: string;
   facebook: string;
   tiene_web: boolean;
-  estatus: 'Pendiente' | 'Aceptado' | 'Rechazado';
+  estatus: 'Pendiente' | 'Aceptado' | 'Rechazado' | 'En Aprobación';
   convertido?: boolean;
 }
 
@@ -63,7 +63,7 @@ export const LeadManager: React.FC<LeadManagerProps> = ({ currentUser }) => {
   const [editInstagram, setEditInstagram] = useState('');
   const [editFacebook, setEditFacebook] = useState('');
   const [editTieneWeb, setEditTieneWeb] = useState(false);
-  const [editEstatus, setEditEstatus] = useState<'Pendiente' | 'Aceptado' | 'Rechazado'>('Pendiente');
+  const [editEstatus, setEditEstatus] = useState<'Pendiente' | 'Aceptado' | 'Rechazado' | 'En Aprobación'>('Pendiente');
 
   // Convert to Project Form States
   const [precioTotal, setPrecioTotal] = useState('5000');
@@ -72,6 +72,7 @@ export const LeadManager: React.FC<LeadManagerProps> = ({ currentUser }) => {
   const [dominio, setDominio] = useState('Dominio Nuevo');
   const [paquete, setPaquete] = useState('1. LANDING PAGE / WEB');
   const [pidioMantenimiento, setPidioMantenimiento] = useState(false);
+  const [descripcionProyecto, setDescripcionProyecto] = useState('');
 
   // IA States
   const [loadingIA, setLoadingIA] = useState(false);
@@ -137,6 +138,7 @@ export const LeadManager: React.FC<LeadManagerProps> = ({ currentUser }) => {
       setFacebook('');
       setTieneWeb(false);
       setShowAddModal(false);
+      await fetchLeads();
       alert('Lead guardado exitosamente.');
     } catch (err: any) {
       console.error(err);
@@ -185,6 +187,7 @@ export const LeadManager: React.FC<LeadManagerProps> = ({ currentUser }) => {
       });
 
       setSelectedLeadForEdit(null);
+      await fetchLeads();
       alert('Lead actualizado con éxito.');
     } catch (err: any) {
       console.error(err);
@@ -192,8 +195,7 @@ export const LeadManager: React.FC<LeadManagerProps> = ({ currentUser }) => {
     }
   };
 
-  // Update Status
-  const handleUpdateStatus = async (id: number, estatus: 'Pendiente' | 'Aceptado' | 'Rechazado') => {
+  const handleUpdateStatus = async (id: number, estatus: 'Pendiente' | 'Aceptado' | 'Rechazado' | 'En Aprobación') => {
     const lead = leads.find(l => l.id === id);
     
     try {
@@ -212,6 +214,7 @@ export const LeadManager: React.FC<LeadManagerProps> = ({ currentUser }) => {
           autor: currentUser.nombre
         });
       }
+      await fetchLeads();
     } catch (err) {
       console.error('Error updating status...', err);
     }
@@ -237,6 +240,7 @@ export const LeadManager: React.FC<LeadManagerProps> = ({ currentUser }) => {
           autor: currentUser.nombre
         });
       }
+      await fetchLeads();
     } catch (err) {
       console.error('Error deleting lead...', err);
     }
@@ -261,6 +265,7 @@ export const LeadManager: React.FC<LeadManagerProps> = ({ currentUser }) => {
         autor: currentUser.nombre
       });
 
+      await fetchLeads();
       alert('Todos los leads han sido eliminados de la base de datos.');
     } catch (err: any) {
       console.error('Error deleting all leads:', err);
@@ -273,44 +278,84 @@ export const LeadManager: React.FC<LeadManagerProps> = ({ currentUser }) => {
     if (!selectedLeadForProj) return;
 
     try {
-      // 1. Insert into clientes (projects)
-      const { error: insertError } = await supabase.from('clientes').insert({
-        nombre: selectedLeadForProj.nombre,
-        tel: selectedLeadForProj.tel,
-        precio_total: parseFloat(precioTotal),
-        tipo_pago: tipoPago,
-        metodo_pago: metodoPago,
-        dominio: dominio,
-        paquete: paquete,
-        creado_por: currentUser.nombre,
-        pidio_mantenimiento: pidioMantenimiento,
-        dia_corte_mantenimiento: pidioMantenimiento ? new Date().getDate() : null,
-        estatus: 'En Proceso',
-        fase_proyecto: 'UI/UX y Diseño'
-      });
+      if (currentUser.isAdmin) {
+        // 1. Insert directly into clientes (projects)
+        const { error: insertError } = await supabase.from('clientes').insert({
+          nombre: selectedLeadForProj.nombre,
+          tel: selectedLeadForProj.tel,
+          precio_total: parseFloat(precioTotal),
+          tipo_pago: tipoPago,
+          metodo_pago: metodoPago,
+          dominio: dominio,
+          paquete: paquete,
+          creado_por: currentUser.nombre,
+          pidio_mantenimiento: pidioMantenimiento,
+          dia_corte_mantenimiento: pidioMantenimiento ? new Date().getDate() : null,
+          estatus: 'En Proceso',
+          fase_proyecto: 'UI/UX y Diseño'
+        });
 
-      if (insertError) throw insertError;
+        if (insertError) throw insertError;
 
-      // 2. Update lead status to convertido: true
-      const { error: updateError } = await supabase
-        .from('leads')
-        .update({ convertido: true })
-        .eq('id', selectedLeadForProj.id);
+        // 2. Update lead status to convertido: true
+        const { error: updateError } = await supabase
+          .from('leads')
+          .update({ convertido: true, estatus: 'Aceptado' })
+          .eq('id', selectedLeadForProj.id);
 
-      if (updateError) throw updateError;
+        if (updateError) throw updateError;
 
-      // Log Activity
-      await supabase.from('actividades').insert({
-        texto: `convirtió el lead "${selectedLeadForProj.nombre}" en Proyecto de desarrollo (${paquete})`,
-        tipo: 'proyecto',
-        autor: currentUser.nombre
-      });
+        // Log Activity
+        await supabase.from('actividades').insert({
+          texto: `convirtió el lead "${selectedLeadForProj.nombre}" en Proyecto de desarrollo (${paquete})`,
+          tipo: 'proyecto',
+          autor: currentUser.nombre
+        });
 
+        alert('Convertido a proyecto con éxito.');
+      } else {
+        // 1. Insert into solicitudes_proyecto for admin approval
+        const { error: insertReqError } = await supabase.from('solicitudes_proyecto').insert({
+          lead_id: selectedLeadForProj.id,
+          nombre_cliente: selectedLeadForProj.nombre,
+          tel_cliente: selectedLeadForProj.tel,
+          precio_total: parseFloat(precioTotal),
+          tipo_pago: tipoPago,
+          metodo_pago: metodoPago,
+          dominio: dominio,
+          paquete: paquete,
+          pidio_mantenimiento: pidioMantenimiento,
+          creado_por: currentUser.nombre,
+          descripcion_proyecto: descripcionProyecto,
+          estatus: 'Pendiente'
+        });
+
+        if (insertReqError) throw insertReqError;
+
+        // 2. Update lead status to 'En Aprobación'
+        const { error: updateLeadError } = await supabase
+          .from('leads')
+          .update({ estatus: 'En Aprobación' })
+          .eq('id', selectedLeadForProj.id);
+
+        if (updateLeadError) throw updateLeadError;
+
+        // Log Activity
+        await supabase.from('actividades').insert({
+          texto: `solicitó aprobación para convertir lead "${selectedLeadForProj.nombre}" en Proyecto (${paquete})`,
+          tipo: 'lead',
+          autor: currentUser.nombre
+        });
+
+        alert('Solicitud de proyecto enviada al administrador principal con éxito.');
+      }
+
+      setDescripcionProyecto('');
       setSelectedLeadForProj(null);
-      alert('Convertido a proyecto con éxito.');
+      await fetchLeads();
     } catch (err: any) {
       console.error(err);
-      alert(`Error al convertir: ${err.message}`);
+      alert(`Error al procesar conversión: ${err.message}`);
     }
   };
 
@@ -577,14 +622,30 @@ export const LeadManager: React.FC<LeadManagerProps> = ({ currentUser }) => {
               border: '1px solid var(--card-border)',
               color: 'var(--text-secondary)',
               padding: '6px',
-              borderRadius: '6px',
-              fontSize: '11px',
               cursor: 'pointer',
-              fontWeight: 600
+              fontSize: '11px',
+              fontWeight: 600,
+              transition: 'all 0.2s ease'
             }}
           >
-            Reabrir y Recuperar
+            Reactivar Prospecto
           </button>
+        )}
+
+        {lead.estatus === 'En Aprobación' && (
+          <div style={{
+            width: '100%',
+            textAlign: 'center',
+            padding: '6px',
+            background: 'rgba(56, 189, 248, 0.08)',
+            border: '1px solid rgba(56, 189, 248, 0.2)',
+            borderRadius: '6px',
+            color: 'var(--color-cyan)',
+            fontSize: '11px',
+            fontWeight: 600
+          }}>
+            En Espera de Aprobación
+          </div>
         )}
       </div>
     </div>
@@ -1101,6 +1162,18 @@ export const LeadManager: React.FC<LeadManagerProps> = ({ currentUser }) => {
                   <option value="6. SISTEMA ENTERPRISE / ERP">6. SISTEMA ENTERPRISE / ERP</option>
                 </select>
               </div>
+            </div>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+              <label style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>¿De qué se trata el proyecto? (Detalles/Descripción)</label>
+              <textarea 
+                value={descripcionProyecto} 
+                onChange={(e) => setDescripcionProyecto(e.target.value)} 
+                className="glass-input" 
+                style={{ minHeight: '80px', resize: 'vertical', background: '#0b0f19', color: '#fff', border: '1px solid var(--card-border)', borderRadius: '8px', padding: '10px' }}
+                placeholder="Escribe el alcance, detalles del software, etc. (Obligatorio)"
+                required 
+              />
             </div>
 
             <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '14px' }}>

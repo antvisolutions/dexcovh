@@ -2,7 +2,10 @@ import React, { useState, useEffect } from 'react';
 import { supabase } from '../supabaseClient';
 import { 
   Trash2,
-  Lock
+  Lock,
+  Check,
+  X,
+  FileText
 } from 'lucide-react';
 
 interface Colaborador {
@@ -26,6 +29,23 @@ interface GlobalTask {
   completada: boolean;
 }
 
+interface ProyectoSolicitud {
+  id: number;
+  lead_id: number;
+  nombre_cliente: string;
+  tel_cliente: string;
+  precio_total: number;
+  tipo_pago: string;
+  metodo_pago: string;
+  dominio: string;
+  paquete: string;
+  pidio_mantenimiento: boolean;
+  creado_por: string;
+  descripcion_proyecto: string;
+  estatus: 'Pendiente' | 'Aprobado' | 'Rechazado';
+  creado_en: string;
+}
+
 const AVAILABLE_PANELS = [
   { id: 'dashboard', label: 'Inicio' },
   { id: 'leads', label: 'Leads & Pitch' },
@@ -39,7 +59,7 @@ const AVAILABLE_PANELS = [
 ];
 
 export const AdminPanel: React.FC = () => {
-  const [activeSubTab, setActiveSubTab] = useState<'team' | 'tickets'>('team');
+  const [activeSubTab, setActiveSubTab] = useState<'team' | 'tickets' | 'requests'>('team');
 
   // Collaborators
   const [colaboradores, setColaboradores] = useState<Colaborador[]>([]);
@@ -58,6 +78,9 @@ export const AdminPanel: React.FC = () => {
   const [globalTasks, setGlobalTasks] = useState<GlobalTask[]>([]);
   const [newTaskTitle, setNewTaskTitle] = useState('');
   const [newTaskAssignee, setNewTaskAssignee] = useState('');
+
+  // Project Approval Requests
+  const [solicitudes, setSolicitudes] = useState<ProyectoSolicitud[]>([]);
 
   const loadData = async () => {
     try {
@@ -82,6 +105,10 @@ export const AdminPanel: React.FC = () => {
 
     const { data: tasksData } = await supabase.from('tareas').select('*').order('id', { ascending: false });
     setGlobalTasks(tasksData || []);
+
+    // Load Project approval requests
+    const { data: reqs } = await supabase.from('solicitudes_proyecto').select('*').order('id', { ascending: false });
+    setSolicitudes(reqs || []);
   };
 
   useEffect(() => {
@@ -94,8 +121,16 @@ export const AdminPanel: React.FC = () => {
       })
       .subscribe();
 
+    const solicitudesChannel = supabase
+      .channel('admin_realtime_solicitudes')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'solicitudes_proyecto' }, () => {
+        loadData();
+      })
+      .subscribe();
+
     return () => {
       supabase.removeChannel(channel);
+      supabase.removeChannel(solicitudesChannel);
     };
   }, []);
 
@@ -296,6 +331,90 @@ export const AdminPanel: React.FC = () => {
     localStorage.setItem('dexcov_tickets', JSON.stringify(updated));
   };
 
+  const handleApproveRequest = async (req: ProyectoSolicitud) => {
+    try {
+      // 1. Insert into clientes (projects)
+      const { error: insertError } = await supabase.from('clientes').insert({
+        nombre: req.nombre_cliente,
+        tel: req.tel_cliente,
+        precio_total: req.precio_total,
+        tipo_pago: req.tipo_pago,
+        metodo_pago: req.metodo_pago,
+        dominio: req.dominio,
+        paquete: req.paquete,
+        creado_por: req.creado_por,
+        pidio_mantenimiento: req.pidio_mantenimiento,
+        dia_corte_mantenimiento: req.pidio_mantenimiento ? new Date().getDate() : null,
+        estatus: 'En Proceso',
+        fase_proyecto: 'UI/UX y Diseño'
+      });
+
+      if (insertError) throw insertError;
+
+      // 2. Update lead status to convertido: true and estatus: Aceptado
+      if (req.lead_id) {
+        const { error: updateError } = await supabase
+          .from('leads')
+          .update({ convertido: true, estatus: 'Aceptado' })
+          .eq('id', req.lead_id);
+        if (updateError) throw updateError;
+      }
+
+      // 3. Update solicitudes_proyecto status to Aprobado
+      const { error: updateReqError } = await supabase
+        .from('solicitudes_proyecto')
+        .update({ estatus: 'Aprobado' })
+        .eq('id', req.id);
+      if (updateReqError) throw updateReqError;
+
+      // Log Activity
+      await supabase.from('actividades').insert({
+        texto: `aprobó la propuesta de proyecto de "${req.nombre_cliente}" (${req.paquete}) enviada por ${req.creado_por}`,
+        tipo: 'proyecto',
+        autor: 'Administrador'
+      });
+
+      alert('Proyecto aprobado y creado exitosamente.');
+      loadData();
+    } catch (err: any) {
+      console.error(err);
+      alert(`Error al aprobar proyecto: ${err.message}`);
+    }
+  };
+
+  const handleRejectRequest = async (req: ProyectoSolicitud) => {
+    try {
+      // 1. Update solicitudes_proyecto status to Rechazado
+      const { error: updateReqError } = await supabase
+        .from('solicitudes_proyecto')
+        .update({ estatus: 'Rechazado' })
+        .eq('id', req.id);
+      if (updateReqError) throw updateReqError;
+
+      // 2. Update lead status back to Pendiente
+      if (req.lead_id) {
+        const { error: updateError } = await supabase
+          .from('leads')
+          .update({ estatus: 'Pendiente' })
+          .eq('id', req.lead_id);
+        if (updateError) throw updateError;
+      }
+
+      // Log Activity
+      await supabase.from('actividades').insert({
+        texto: `rechazó la propuesta de proyecto de "${req.nombre_cliente}" enviada por ${req.creado_por}`,
+        tipo: 'lead',
+        autor: 'Administrador'
+      });
+
+      alert('Solicitud rechazada con éxito.');
+      loadData();
+    } catch (err: any) {
+      console.error(err);
+      alert(`Error al rechazar solicitud: ${err.message}`);
+    }
+  };
+
   const handleNewColabPanelCheckbox = (panelId: string) => {
     if (newColabPanels.includes(panelId)) {
       setNewColabPanels(newColabPanels.filter(p => p !== panelId));
@@ -347,6 +466,21 @@ export const AdminPanel: React.FC = () => {
           }}
         >
           Soporte y Tareas
+        </button>
+        <button
+          onClick={() => setActiveSubTab('requests')}
+          style={{
+            padding: '8px 16px',
+            borderRadius: '8px',
+            border: '1px solid var(--card-border)',
+            background: activeSubTab === 'requests' ? 'rgba(56, 189, 248, 0.1)' : '#111827',
+            color: activeSubTab === 'requests' ? 'var(--color-cyan)' : 'var(--text-secondary)',
+            cursor: 'pointer',
+            fontWeight: 600,
+            fontSize: '13px'
+          }}
+        >
+          Solicitudes de Proyectos
         </button>
       </div>
 
@@ -655,6 +789,99 @@ export const AdminPanel: React.FC = () => {
                 </div>
               )}
             </div>
+          </div>
+        </div>
+      )}
+
+      {activeSubTab === 'requests' && (
+        <div className="glass-panel animate-fade-in" style={{ padding: '24px', background: 'var(--bg-secondary)', border: '1px solid var(--card-border)' }}>
+          <h3 style={{ fontSize: '18px', fontWeight: 700, marginBottom: '16px', color: '#ffffff', display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <FileText size={20} style={{ color: 'var(--color-cyan)' }} />
+            Solicitudes de Aprobación de Proyectos
+          </h3>
+          <p style={{ color: 'var(--text-secondary)', fontSize: '13px', marginBottom: '20px' }}>
+            A continuación se listan las propuestas de conversión de leads a proyectos enviadas por los colaboradores que requieren tu revisión.
+          </p>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+            {solicitudes.length === 0 ? (
+              <div style={{ color: 'var(--text-muted)', textAlign: 'center', padding: '40px 0' }}>
+                No hay solicitudes de proyectos registradas.
+              </div>
+            ) : (
+              solicitudes.map((req) => (
+                <div 
+                  key={req.id} 
+                  style={{ 
+                    padding: '20px', 
+                    background: 'rgba(255, 255, 255, 0.02)', 
+                    border: `1px solid ${req.estatus === 'Pendiente' ? 'rgba(56, 189, 248, 0.2)' : 'var(--card-border)'}`, 
+                    borderRadius: '12px',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '12px'
+                  }}
+                >
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '8px' }}>
+                    <div>
+                      <h4 style={{ fontSize: '16px', fontWeight: 700, color: '#ffffff' }}>
+                        {req.nombre_cliente}
+                      </h4>
+                      <span style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>
+                        Solicitado por: <strong>{req.creado_por}</strong> | Tel: {req.tel_cliente || 'N/A'}
+                      </span>
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <span style={{ 
+                        fontSize: '11px', 
+                        fontWeight: 600, 
+                        padding: '4px 8px', 
+                        borderRadius: '6px', 
+                        background: req.estatus === 'Pendiente' ? 'rgba(56, 189, 248, 0.15)' : req.estatus === 'Aprobado' ? 'rgba(16, 185, 129, 0.15)' : 'rgba(239, 68, 68, 0.15)',
+                        color: req.estatus === 'Pendiente' ? 'var(--color-cyan)' : req.estatus === 'Aprobado' ? '#10b981' : '#ef4444'
+                      }}>
+                        {req.estatus.toUpperCase()}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '12px', padding: '12px', background: 'rgba(0, 0, 0, 0.2)', borderRadius: '8px', fontSize: '13px' }}>
+                    <div><span style={{ color: 'var(--text-muted)' }}>Paquete:</span> <span style={{ color: '#fff', fontWeight: 500 }}>{req.paquete}</span></div>
+                    <div><span style={{ color: 'var(--text-muted)' }}>Precio:</span> <span style={{ color: 'var(--color-cyan)', fontWeight: 600 }}>${req.precio_total.toLocaleString()}</span></div>
+                    <div><span style={{ color: 'var(--text-muted)' }}>Pago:</span> <span style={{ color: '#fff' }}>{req.tipo_pago} ({req.metodo_pago})</span></div>
+                    <div><span style={{ color: 'var(--text-muted)' }}>Dominio:</span> <span style={{ color: '#fff' }}>{req.dominio}</span></div>
+                  </div>
+
+                  <div style={{ background: 'rgba(0, 0, 0, 0.15)', padding: '14px', borderRadius: '8px', borderLeft: '3px solid var(--color-cyan)' }}>
+                    <span style={{ fontSize: '11px', color: 'var(--text-muted)', display: 'block', marginBottom: '4px', fontWeight: 600 }}>Descripción / Alcance del Proyecto:</span>
+                    <p style={{ fontSize: '13px', color: '#f3f4f6', whiteSpace: 'pre-wrap', lineHeight: '1.4' }}>
+                      {req.descripcion_proyecto}
+                    </p>
+                  </div>
+
+                  {req.estatus === 'Pendiente' && (
+                    <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end', marginTop: '4px' }}>
+                      <button 
+                        onClick={() => handleRejectRequest(req)} 
+                        className="btn-secondary" 
+                        style={{ display: 'flex', alignItems: 'center', gap: '4px', padding: '6px 12px', fontSize: '13px' }}
+                      >
+                        <X size={14} style={{ color: '#ef4444' }} />
+                        Rechazar
+                      </button>
+                      <button 
+                        onClick={() => handleApproveRequest(req)} 
+                        className="btn-primary" 
+                        style={{ display: 'flex', alignItems: 'center', gap: '4px', padding: '6px 12px', fontSize: '13px' }}
+                      >
+                        <Check size={14} />
+                        Aprobar Proyecto
+                      </button>
+                    </div>
+                  )}
+                </div>
+              ))
+            )}
           </div>
         </div>
       )}
