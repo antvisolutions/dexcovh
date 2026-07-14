@@ -187,3 +187,44 @@ body::before {
   -ms-overflow-style: none;
   scrollbar-width: none;
 }
+
+/* Global Responsive Layout Rules */
+@media (max-width: 1024px) {
+  /* Adjust grids that might be 3 or 4 columns to 2 columns */
+  .grid-responsive-3-4 {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+}
+
+@media (max-width: 768px) {
+  /* Make all main sections stack vertically */
+  .grid-responsive-3-4,
+  .grid-responsive-2,
+  .grid-responsive-3 {
+    grid-template-columns: 1fr !important;
+  }
+  
+  /* Standard padding reduction for mobile devices */
+  .mobile-padding-reduction {
+    padding: 16px !important;
+  }
+  
+  .mobile-gap-reduction {
+    gap: 12px !important;
+  }
+  
+  /* Make modals responsive */
+  .glass-panel {
+    max-width: 95% !important;
+    width: 95% !important;
+    padding: 20px !important;
+  }
+}
+
+/* Print configuration */
+@media print {
+  .no-print {
+    display: none !important;
+  }
+}
+
