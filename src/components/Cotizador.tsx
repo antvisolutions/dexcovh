@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { FileText, Printer, Sparkles, Cpu } from 'lucide-react';
+import { Printer, Sparkles } from 'lucide-react';
 import { supabase } from '../supabaseClient';
 
 interface Rangos {
@@ -69,6 +69,14 @@ export const Cotizador: React.FC<CotizadorProps> = ({ currentUser }) => {
 
     return base + dom + extra;
   };
+
+  // Calculations
+  const subtotal = getSubtotal();
+  const descPercent = parseFloat(descuento) || 0;
+  const dineroDescuento = subtotal * (descPercent / 100);
+  const total = subtotal - dineroDescuento;
+  const anticipo = total / 2;
+  const restante = total - anticipo;
 
   const handleGeneratePdf = (e: React.FormEvent) => {
     e.preventDefault();
@@ -189,7 +197,7 @@ export const Cotizador: React.FC<CotizadorProps> = ({ currentUser }) => {
         tel_cliente: '',
         precio_total: total,
         tipo_pago: 'Anticipo 50%',
-        metodo_pago: metodoPago,
+        metodo_pago: 'Transferencia',
         dominio: tipoDominio,
         paquete: paquete,
         pidio_mantenimiento: tipoMantenimiento !== 'Sin Mantenimiento (15 días garantía)',
@@ -216,13 +224,6 @@ export const Cotizador: React.FC<CotizadorProps> = ({ currentUser }) => {
   const triggerPrint = () => {
     window.print();
   };
-
-  const subtotal = getSubtotal();
-  const descPercent = parseFloat(descuento) || 0;
-  const dineroDescuento = subtotal * (descPercent / 100);
-  const total = subtotal - dineroDescuento;
-  const anticipo = total / 2;
-  const restante = total - anticipo;
 
   // Print Preview for AI Context Proposal
   if (showAIPrintPreview) {
@@ -484,13 +485,6 @@ export const Cotizador: React.FC<CotizadorProps> = ({ currentUser }) => {
       </div>
     );
   }
-
-  const subtotal = getSubtotal();
-  const descPercent = parseFloat(descuento) || 0;
-  const dineroDescuento = subtotal * (descPercent / 100);
-  const total = subtotal - dineroDescuento;
-  const anticipo = total / 2;
-  const restante = total - anticipo;
 
   return (
     <div style={{ padding: '30px' }} className="mobile-padding-reduction">
